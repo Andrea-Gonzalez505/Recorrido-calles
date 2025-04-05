@@ -1,0 +1,121 @@
+import random
+import time
+
+def lanzar_dado():
+    """Genera un número aleatorio entre 1 y 6 (valor de un dado)."""
+    return random.randint(1, 6)
+
+def horizontal(distancia, delay, posicion):
+    """Imprime un movimiento horizontal poco a poco."""
+    for _ in range(distancia):
+        print("-", end="", flush=True)
+        time.sleep(delay)
+    return posicion + distancia
+
+def recta(distancia, delay, posicion):
+    """Imprime un movimiento en línea recta (vertical)."""
+    for _ in range(distancia):
+        print(" " * posicion + "|", flush=True)
+        time.sleep(delay)
+    return posicion
+
+def diagonal_derecha(distancia, delay, posicion):
+    """Imprime un movimiento en diagonal hacia la derecha en una línea continua."""
+    for _ in range(distancia):
+        print(" " * posicion + "\\", flush=True)
+        time.sleep(delay)
+        posicion += 1
+    return posicion
+
+def diagonal_izquierda(distancia, delay, posicion):
+    """Imprime un movimiento en diagonal hacia la izquierda en una línea continua."""
+    for _ in range(distancia):
+        print(" " * posicion + "/", flush=True)
+        time.sleep(delay)
+        posicion -= 1
+    return posicion
+
+def avanzar(movimiento, distancia_total, delay, posicion):
+    """Avanza por el tramo según el dado, mostrando el progreso paso a paso."""
+    km_recorridos = 0
+
+    while distancia_total > 0:
+        avanzar_distancia = min(lanzar_dado(), distancia_total)  # No avanza más de lo que queda en el tramo
+
+        if movimiento == "-":
+            posicion = horizontal(avanzar_distancia, delay, posicion)
+        elif movimiento == "|":
+            posicion = recta(avanzar_distancia, delay, posicion)
+        elif movimiento == "\\":
+            posicion = diagonal_derecha(avanzar_distancia, delay, posicion)
+        elif movimiento == "/":
+            posicion = diagonal_izquierda(avanzar_distancia, delay, posicion)
+
+        distancia_total -= avanzar_distancia
+        km_recorridos += avanzar_distancia  # Acumular km recorridos
+        time.sleep(1)  # Esperar antes de la siguiente tirada de dado
+
+    if movimiento == "-":
+        print()  # Salto de línea al terminar la línea horizontal
+
+    return posicion, km_recorridos
+
+def simular_recorrido(recorrido, vias, r_vias, recorridoSel, delay, tanque):
+    """Ejecuta la simulación del recorrido usando los valores del dado."""
+    posicion = 0
+    km_total = 0
+
+    print("\nRuta seleccionada:")
+    for tramo in r_vias[recorridoSel]:
+        nombre_via = next((v["NOMBRE"] for v in vias if v["NUMERO"] == tramo), None)
+        if nombre_via:
+            print(f"- {nombre_via}")
+
+    print("\nIniciando recorrido...\n")
+
+    for tramo, distancia in zip(r_vias[recorridoSel], recorrido[recorridoSel]):
+        movimiento = next((v["MOVIMIENTO"] for v in vias if v["NUMERO"] == tramo), None)
+        if movimiento:
+            posicion, km_recorridos = avanzar(movimiento, distancia, delay, posicion)
+            tanque -= km_recorridos * 0.5  # Reducir tanque según los km avanzados
+            km_total += km_recorridos  # Sumar al total
+
+            if tanque <= 0:
+                print("¡Se acabó el combustible!")
+                return
+
+    print(f"\nRecorrido completado. Combustible restante: {tanque:.2f} L")
+    print(f"Total de kilómetros recorridos: {km_total} km")
+
+def main():
+    tiempo_actual = random.randint(0, 59)
+    ruta_index = tiempo_actual // 20  # Obtiene 0, 1 o 2
+    tanque = round(random.uniform(35, 100), 2)
+    delay = float(input("Ingrese el retraso en segundos (ej. 0.1 para 100ms): ")) / 1000
+
+    print(f"\nTanque de combustible inicial: {tanque} L")
+
+    recorrido = [
+        [12, 7, 12, 0], 
+        [4, 3, 10, 4], 
+        [10, 7, 6, 0]
+    ]
+
+    vias = [
+        {"NUMERO": 1, "NOMBRE": "Autopista norte", "MOVIMIENTO": "-"},
+        {"NUMERO": 2, "NOMBRE": "NQS", "MOVIMIENTO": "\\"},
+        {"NUMERO": 3, "NOMBRE": "Avenida Boyacá", "MOVIMIENTO": "\\"},
+        {"NUMERO": 4, "NOMBRE": "Calle 26", "MOVIMIENTO": "/"},
+        {"NUMERO": 5, "NOMBRE": "Calle 100", "MOVIMIENTO": "\\"},
+        {"NUMERO": 6, "NOMBRE": "Calle 170", "MOVIMIENTO": "|"}
+    ]
+
+    r_vias = [
+        [1, 2, 4, 0], 
+        [1, 6, 3, 4], 
+        [1, 5, 4, 0]
+    ]
+
+    simular_recorrido(recorrido, vias, r_vias, ruta_index, delay, tanque)
+
+main()
