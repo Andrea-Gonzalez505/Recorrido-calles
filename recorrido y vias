@@ -1,0 +1,91 @@
+import time
+import random
+
+def horizontal(km, delay):
+    for _ in range(km):
+        print("-", end="", flush=True)
+        time.sleep(delay)
+
+def recta(km, delay):
+    for _ in range(km):
+        print("|", flush=True)
+        time.sleep(delay)
+
+def diagonal_derecha(km, delay, espacio_actual):
+    for _ in range(km):
+        print(" " * espacio_actual + "\\", flush=True)
+        espacio_actual += 1
+        time.sleep(delay)
+    return espacio_actual
+
+def diagonal_izquierda(km, delay, espacio_actual):
+    for _ in range(km):
+        print(" " * espacio_actual + "/", flush=True)
+        espacio_actual -= 1
+        time.sleep(delay)
+    return espacio_actual
+
+def lanzar_dado():
+    return random.randint(0, 6)  # Simula un dado de 0 a 6
+
+def avanzar(movimiento, delay, espacio_actual):
+    km = lanzar_dado()  # Determina cuántos kilómetros avanzará
+    print(f"Avanzando {km} km...")  # Muestra la cantidad en consola
+    if movimiento == "-":
+        horizontal(km, delay)
+    elif movimiento == "|":
+        recta(km, delay)
+    elif movimiento == "\\":
+        espacio_actual = diagonal_derecha(km, delay, espacio_actual)
+    elif movimiento == "/":
+        espacio_actual = diagonal_izquierda(km, delay, espacio_actual)
+    return km, espacio_actual  # Retorna los km recorridos y el nuevo espacio
+
+def simular_recorrido(recorrido, vias, r_vias, recorridoSel, delay):
+    tanque = round(random.uniform(35, 100), 2)
+    print(f"Tanque de combustible inicial: {tanque:.2f} L")
+    
+    espacio_actual = 0  # Controla la alineación de las líneas
+    for tramo in r_vias[recorridoSel]:
+        movimiento = next((v["MOVIMIENTO"] for v in vias if v["NUMERO"] == tramo), None)
+        if movimiento:
+            km_recorridos, espacio_actual = avanzar(movimiento, delay, espacio_actual)
+            tanque -= km_recorridos * 0.5  # Resta 0.5 L por cada km
+            print(f"Combustible restante: {tanque:.2f} L")
+            if tanque <= 0:
+                print("🚨 ¡Sin combustible! Fin del recorrido.")
+                return
+    
+    print("\nRecorrido completado. 🚗💨")
+    print(f"Combustible restante: {tanque:.2f} L")
+
+def main():
+    delay = float(input("Ingrese el retraso en milisegundos: ")) / 1000
+    tiempo_actual = random.randint(0, 59)
+    ruta_index = tiempo_actual // 20  # Determina la ruta basada en el tiempo
+    print(f"Ruta seleccionada: {ruta_index}")
+    
+    recorrido = [
+        [12, 7, 12, 0],
+        [4, 3, 10, 4],
+        [10, 7, 6, 0]
+    ]
+    
+    vias = [
+        {"NUMERO": 1, "NOMBRE": "Autopista norte", "MOVIMIENTO": "-"},
+        {"NUMERO": 2, "NOMBRE": "NQS", "MOVIMIENTO": "\\"},
+        {"NUMERO": 3, "NOMBRE": "Avenida Boyacá", "MOVIMIENTO": "\\"},
+        {"NUMERO": 4, "NOMBRE": "Calle 26", "MOVIMIENTO": "/"},
+        {"NUMERO": 5, "NOMBRE": "Calle 100", "MOVIMIENTO": "\\"},
+        {"NUMERO": 6, "NOMBRE": "Calle 170", "MOVIMIENTO": "|"}
+    ]
+    
+    r_vias = [
+        [1, 2, 4, 0],
+        [1, 6, 3, 4],
+        [1, 5, 4, 0]
+    ]
+    
+    simular_recorrido(recorrido, vias, r_vias, ruta_index, delay)
+
+main()
