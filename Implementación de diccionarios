@@ -1,0 +1,143 @@
+from pybricks.hubs import EV3Brick
+from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
+                                InfraredSensor, UltrasonicSensor, GyroSensor)
+from pybricks.parameters import Port, Stop, Direction, Button, Color
+from pybricks.tools import wait, StopWatch, DataLog
+from pybricks.robotics import DriveBase
+from pybricks.media.ev3dev import SoundFile, ImageFile
+
+import random
+import time
+import utime
+# Inicializar el EV3 Brick
+#ev3 = EV3Brick()
+
+####################################################################################################
+
+def obtener_ruta(tiempo_actual):
+    """Determina la ruta según el tiempo transcurrido."""
+    if 0 <= tiempo_actual <= 19:
+        return ["Autopista", "Kr 30", "Calle 26"]
+    elif 20 <= tiempo_actual <= 39:
+        return ["Autopista", "Calle 170", "Avenida Boyacá", "Calle 26"]
+    else:
+        return ["Autopista", "Calle 100", "Kr 68", "Calle 26"]
+
+def lanzar_dado():
+    dado = random.randint(0,6)
+    return dado
+
+def horizontal(velocidad):
+    for i in range(velocidad):
+        print("-", end = "")
+
+def recta(velocidad):
+    """ Imprime una línea recta hacia abajo con la velocidad indicada. 
+        (int) -> None
+    """
+    for i in range(velocidad):
+        print("|")
+
+def diagonal_derecha(velocidad):
+    """ 
+    Imprime una línea en diagonal hacia la derecha con la velocidad indicada. \\
+    (int) -> None
+    """
+    for i in range(velocidad):
+        print(" " * i + "\\")
+
+def diagonal_izquierda(velocidad):
+    """ Imprime una línea en diagonal hacia la izquierda con la velocidad indicada. /
+        (int) -> None
+    """
+    for i in range(velocidad):
+        print(" " * (velocidad - i - 1) + "/")
+
+
+def semaforo_l():
+    conte = 0
+    semaforos = [] 
+    while conte < 5:
+        val = random.randint(1,3)
+        semaforos.append(val)
+        conte = conte + 1
+    return semaforos
+
+def avanzar(MOVIMIENTO):
+    global tanque, distancia_r
+    if MOVIMIENTO == "-":
+        horizontal(MOVIMIENTO)
+    elif MOVIMIENTO == "\\":
+        diagonal_derecha(MOVIMIENTO)
+    elif MOVIMIENTO == "|":
+        recta(MOVIMIENTO)
+    elif MOVIMIENTO == "/":
+        diagonal_izquierda(MOVIMIENTO)
+    
+    tanque -= 0.5
+    distancia_r += 1
+
+    wait(500)
+
+def main():
+    tiempo_actual = random.randint(0, 59)
+    ruta = obtener_ruta(tiempo_actual)
+
+    tanque = round(random.uniform(35, 100), 2)
+
+    recorrido = [
+    [12,7,12,0],
+    [4,10,3,4],
+    [10,7,6,0]
+    ]
+
+    Vias = [
+    {"NUMERO": 1, "NOMBRE": "Autopista norte", "MOVIMIENTO": "-"},
+    {"NUMERO": 2, "NOMBRE": "NQS", "MOVIMIENTO": "\\"},
+    {"NUMERO": 3, "NOMBRE": "Avenida Boyacá", "MOVIMIENTO": "\\"},
+    {"NUMERO": 4, "NOMBRE": "Calle 26", "MOVIMIENTO": "/"},
+    {"NUMERO": 5, "NOMBRE": "Calle100", "MOVIMIENTO": "\\"},
+    {"NUMERO": 6, "NOMBRE": "Calle170", "MOVIMIENTO": "|"}
+    ]
+
+    recorrido_v = [
+        [1,2,4,0],
+        [1,5,4,0],
+        [1,6,3,4]
+    ]
+    avanza = avanzar(MOVIMIENTO)
+
+    distancia_t = [sum(fila) for fila in recorrido]
+    print(distancia_t)
+    print(tanque)
+    
+    distancia_r = 0
+    recorridoSel=1
+    tramo=0
+    auxTramo=0
+    while distancia_r < distancia_t[recorridoSel]:
+        # Lanzar el dado para determinar la distancia a avanzar
+        Distancia = lanzar_dado()
+        
+        # Obtener el movimiento correspondiente a la vía actual
+        auxMovimiento = next((v["MOVIMIENTO"] for v in Vias if v["NUMERO"] == recorrido[recorridoSel][tramo]), None)
+
+        # Verificar si la distancia recorrida más el avance es menor que la distancia del tramo
+        if (distancia_r + Distancia) < (recorrido[recorridoSel][tramo] + auxTramo):
+            for _ in range(Distancia):
+                print(auxMovimiento, end="")  # Simular el avance con el movimiento visual
+                distancia_r += 1
+        else:
+            for _ in range((recorrido[recorridoSel][tramo] + auxTramo) - distancia_r):
+                print(auxMovimiento, end="")  # Simular el avance con el movimiento visual
+                distancia_r += 1
+            
+            if distancia_r >= recorrido[recorridoSel][tramo] + auxTramo:
+                auxTramo += recorrido[recorridoSel][tramo]
+                tramo += 1  # Pasar al siguiente tramo
+
+    print("\nRecorrido completado.")
+                
+
+
+main()
