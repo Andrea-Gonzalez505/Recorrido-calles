@@ -1,0 +1,163 @@
+#!/usr/bin/env pybricks-micropython
+
+from pybricks.hubs import EV3Brick
+from pybricks.ev3devices import Motor, GyroSensor
+from pybricks.parameters import Port
+from pybricks.tools import wait
+from pybricks.robotics import DriveBase
+
+import random
+import time
+
+# --------------------- INICIALIZACIÓN DEL EV3 ---------------------
+ev3 = EV3Brick()
+Right_W = Motor(Port.B)
+Left_W = Motor(Port.C)
+Robot = DriveBase(Left_W, Right_W, wheel_diameter=25.0, axle_track=104)
+GyrS = GyroSensor(Port.S2)
+
+# --------------------- VARIABLE GLOBAL DE COMBUSTIBLE ---------------------
+combustible = 0.0
+
+# --------------------- FUNCIONES DE MOVIMIENTO ---------------------
+def girar_angulo(grados, velocidad=1):
+    GyrS.reset_angle(0)
+    wait(300)
+    if grados < 0:
+        while GyrS.angle() > grados:
+            Left_W.run(velocidad * 90)
+            Right_W.run(-(velocidad * 90))
+    else:
+        while GyrS.angle() < grados:
+            Left_W.run(-(velocidad * 90))
+            Right_W.run(velocidad * 90)
+    Left_W.stop()
+    Right_W.stop()
+
+def avanzar_distancia(km):
+    global combustible
+    d = 0
+    wait(100)
+    while d < km:
+        if combustible <= 0:
+            ev3.screen.clear()
+            ev3.screen.print("¡Sin combustible!")
+            wait(3000)
+            raise SystemExit()
+        Left_W.run(450)
+        Right_W.run(450)
+        d += 0.25
+        combustible -= 0.25 * 0.5  # 0.5 litros por km → 0.25 * 0.5 por cada 250 m
+        ev3.screen.clear()
+        ev3.screen.print("Combustible: {:.2f} L".format(combustible))
+        wait(100)
+    Left_W.stop()
+    Right_W.stop()
+
+# --------------------- FUNCIONES DE SIMULACIÓN ---------------------
+def lanzar_dado():
+    return random.randint(0, 6)
+
+# Mapa de giros entre calles
+giros = {
+    ("Autopista norte", "Carrera 30"): 30,
+    ("Autopista norte", "Calle 170"): 90,
+    ("Autopista norte", "Calle 100"): 60,
+    ("Calle 170", "Avenida Boyacá"): -90,
+    ("Carrera 30", "Calle 26"): 60,
+    ("Calle 100", "Calle 26"): 30,
+    ("Avenida Boyacá", "Calle 26"): 90,
+}
+
+def avanzar_en_via(nombre_actual, nombre_siguiente, movimiento, distancia_km):
+    ev3.screen.clear()
+    ev3.screen.print("Vía: " + nombre_actual)
+    time.sleep(1)
+
+    km_recorridos = 0
+    while km_recorridos < distancia_km:
+        paso = lanzar_dado()
+        ev3.screen.clear()
+        ev3.screen.print("Vía: " + nombre_actual)
+        ev3.screen.print("Dado: " + str(paso))
+        time.sleep(1)
+
+        if paso == 0:
+            continue
+
+        avanzar = min(paso, distancia_km - km_recorridos)
+        avanzar_distancia(avanzar)
+        km_recorridos += avanzar
+        time.sleep(0.5)
+
+    # Si hay giro a la siguiente calle
+    if nombre_siguiente:
+        giro = giros.get((nombre_actual, nombre_siguiente), 0)
+        if giro != 0:
+            ev3.screen.clear()
+            ev3.screen.print("Girando a " + nombre_siguiente)
+            girar_angulo(giro)
+            time.sleep(1)
+
+def simular_recorrido(recorrido, r_vias, vias, ruta_index):
+    vias_ruta = r_vias[ruta_index]
+    distancias = recorrido[ruta_index]
+
+    ev3.screen.clear()
+    ev3.screen.print("Iniciando ruta")
+    wait(2000)
+
+    for i in range(len(vias_ruta)):
+        via_actual = vias_ruta[i]
+        if via_actual == 0 or distancias[i] == 0:
+            continue
+
+        nombre_actual = next((v["NOMBRE"] for v in vias if v["NUMERO"] == via_actual), "")
+        nombre_siguiente = ""
+        if i + 1 < len(vias_ruta) and vias_ruta[i + 1] != 0:
+            nombre_siguiente = next((v["NOMBRE"] for v in vias if v["NUMERO"] == vias_ruta[i + 1]), "")
+
+        movimiento = next((v["MOVIMIENTO"] for v in vias if v["NUMERO"] == via_actual), "-")
+        avanzar_en_via(nombre_actual, nombre_siguiente, movimiento, distancias[i])
+
+    ev3.screen.clear()
+    ev3.screen.print("Ruta completa")
+    wait(3000)
+
+# --------------------- FUNCIÓN PRINCIPAL ---------------------
+def main():
+    global combustible
+
+    # Inicializa el combustible aleatorio entre 35 y 100 litros (2 decimales)
+    combustible = round(random.uniform(35, 100), 2)
+    ev3.screen.clear()
+    ev3.screen.print("Combustible: {:.2f} L".format(combustible))
+    wait(2000)
+
+    tiempo_actual = random.randint(0, 59)
+    ruta_index = tiempo_actual // 20
+
+    recorrido = [
+        [12, 7, 12, 0],     # Ruta 1
+        [4, 3, 10, 4],      # Ruta 2
+        [10, 7, 6, 0]       # Ruta 3
+    ]
+
+    vias = [
+        {"NUMERO": 1, "NOMBRE": "Autopista norte", "MOVIMIENTO": "-"},
+        {"NUMERO": 2, "NOMBRE": "Carrera 30", "MOVIMIENTO": "\\"},
+        {"NUMERO": 3, "NOMBRE": "Avenida Boyacá", "MOVIMIENTO": "\\"},
+        {"NUMERO": 4, "NOMBRE": "Calle 26", "MOVIMIENTO": "/"},
+        {"NUMERO": 5, "NOMBRE": "Calle 100", "MOVIMIENTO": "\\"},
+        {"NUMERO": 6, "NOMBRE": "Calle 170", "MOVIMIENTO": "|"}
+    ]
+
+    r_vias = [
+        [1, 2, 4, 0],       # Ruta 1
+        [1, 6, 3, 4],       # Ruta 2
+        [1, 5, 4, 0]        # Ruta 3
+    ]
+
+    simular_recorrido(recorrido, r_vias, vias, ruta_index)
+
+main()
