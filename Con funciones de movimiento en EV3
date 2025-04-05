@@ -1,0 +1,270 @@
+#!/usr/bin/env pybricks-micropython
+
+# --------------------- IMPORTACIONES PARA EV3 ---------------------
+from pybricks.hubs import EV3Brick
+from pybricks.ev3devices import Motor, TouchSensor, GyroSensor
+from pybricks.parameters import Port
+from pybricks.tools import wait
+from pybricks.robotics import DriveBase
+
+# --------------------- IMPORTACIONES PARA SIMULACIÓN ---------------------
+import random
+import time
+
+# --------------------- INICIALIZACIÓN DEL EV3 ---------------------
+ev3 = EV3Brick()
+Right_W = Motor(Port.C)
+Left_W = Motor(Port.D)
+Robot = DriveBase(Left_W, Right_W, wheel_diameter=25.0, axle_track=104)
+GyrS = GyroSensor(Port.S3)
+Color = TouchSensor(Port.S2)
+
+# --------------------- FUNCIONES DE MOVIMIENTO ---------------------
+def gr_L(a, v):
+    GyrS.reset_angle(0)
+    wait(300)
+    while GyrS.angle() > -(a * 10):
+        Left_W.run(v * 90)
+        Right_W.run(-(v * 90))
+    Left_W.stop()
+    Right_W.stop()
+
+def gr_R(a, v):
+    GyrS.reset_angle(0)
+    wait(300)
+    while GyrS.angle() < (a * 10):
+        Left_W.run(-(v * 90))
+        Right_W.run(v * 90)
+    Left_W.stop()
+    Right_W.stop()
+
+def Str(n):
+    d = 0
+    wait(100)
+    while d < n:
+        Left_W.run(450)
+        Right_W.run(450)
+        d += 0.025
+    Left_W.stop()
+    Right_W.stop()
+
+# --------------------- FUNCIONES DE SIMULACIÓN ---------------------
+def lanzar_dado():
+    return random.randint(1, 6)
+
+def horizontal(distancia, delay, posicion):
+    for _ in range(distancia):
+        print("-", end="", flush=True)
+        time.sleep(delay)
+    return posicion + distancia
+
+def recta(distancia, delay, posicion):
+    for _ in range(distancia):
+        print(" " * posicion + "|", flush=True)
+        time.sleep(delay)
+    return posicion
+
+def diagonal_derecha(distancia, delay, posicion):
+    for _ in range(distancia):
+        print(" " * posicion + "\\", flush=True)
+        time.sleep(delay)
+        posicion += 1
+    return posicion
+
+def diagonal_izquierda(distancia, delay, posicion):
+    for _ in range(distancia):
+        print(" " * posicion + "/", flush=True)
+        time.sleep(delay)
+        posicion -= 1
+    return posicion
+
+def generar_semaforos_para_ruta(vias_ruta, vias, semaforos):
+    semaforos_ruta = []
+    for via in vias_ruta:
+        if random.random() < 0.7 and via != 0:
+            nombre_via = next((v["NOMBRE"] for v in vias if v["NUMERO"] == via), None)
+            semaforos_via = [s for s_id, s in semaforos.items() if s["via"] == nombre_via]
+            if semaforos_via:
+                semaforo = random.choice(semaforos_via)
+                estado_inicial = random.randint(1, 3)
+                turnos_iniciales = 5 if estado_inicial == 1 else (3 if estado_inicial == 2 else 1)
+                semaforos_ruta.append({
+                    "via": via,
+                    "nombre_via": nombre_via,
+                    "distancia_km": semaforo["distancia_km"],
+                    "estado": estado_inicial,
+                    "estado_inicial": estado_inicial,
+                    "turnos_restantes": turnos_iniciales,
+                    "turnos_iniciales": turnos_iniciales
+                })
+    return semaforos_ruta
+
+def actualizar_estado_semaforo(semaforo):
+    semaforo["turnos_restantes"] -= 1
+    if semaforo["turnos_restantes"] <= 0:
+        if semaforo["estado"] == 1:
+            semaforo["estado"] = 2
+            semaforo["turnos_restantes"] = 3
+        elif semaforo["estado"] == 2:
+            semaforo["estado"] = 3
+            semaforo["turnos_restantes"] = 1
+        elif semaforo["estado"] == 3:
+            semaforo["estado"] = 1
+            semaforo["turnos_restantes"] = 5
+    return semaforo
+
+def mostrar_estado_semaforo(estado):
+    if estado == 1:
+        return "🟢 Verde (5 turnos)"
+    elif estado == 2:
+        return "🟡 Amarillo (3 turnos)"
+    else:
+        return "🔴 Rojo (1 turno)"
+
+def avanzar(movimiento, distancia_total, delay, posicion, semaforos_via, km_acumulados):
+    km_recorridos = 0
+    pausar_por_semaforo = False
+    semaforos_en_rojo = []
+
+    for s in semaforos_via:
+        if abs(s["distancia_km"] - km_acumulados) < 0.1 and s["estado"] == 3:
+            pausar_por_semaforo = True
+            semaforos_en_rojo.append(s)
+
+    while distancia_total > 0:
+        tirada = lanzar_dado()
+        avanzar_distancia = min(tirada, distancia_total)
+        km_proximos = km_acumulados + km_recorridos + avanzar_distancia
+
+        for semaforo in semaforos_via:
+            km_semaforo = semaforo["distancia_km"]
+            if (km_acumulados + km_recorridos < km_semaforo <= km_proximos):
+                semaforo = actualizar_estado_semaforo(semaforo)
+                if semaforo["estado"] == 3:
+                    avanzar_distancia = km_semaforo - (km_acumulados + km_recorridos)
+                    pausar_por_semaforo = True
+                    semaforos_en_rojo.append(semaforo)
+
+        for semaforo in semaforos_via:
+            if semaforo not in semaforos_en_rojo:
+                semaforo = actualizar_estado_semaforo(semaforo)
+
+        if movimiento == "-":
+            posicion = horizontal(avanzar_distancia, delay, posicion)
+        elif movimiento == "|":
+            posicion = recta(avanzar_distancia, delay, posicion)
+        elif movimiento == "\\":
+            posicion = diagonal_derecha(avanzar_distancia, delay, posicion)
+        elif movimiento == "/":
+            posicion = diagonal_izquierda(avanzar_distancia, delay, posicion)
+
+        distancia_total -= avanzar_distancia
+        km_recorridos += avanzar_distancia
+
+        if pausar_por_semaforo:
+            for semaforo in semaforos_en_rojo:
+                print(f"\nSemáforo en {semaforo['nombre_via']} Km {semaforo['distancia_km']}: {mostrar_estado_semaforo(semaforo['estado'])}")
+                turnos_espera = max(1, semaforo['turnos_restantes'])
+                time.sleep(turnos_espera * 1.0)
+                for _ in range(turnos_espera):
+                    semaforo = actualizar_estado_semaforo(semaforo)
+                print(f"Semáforo cambiado a {mostrar_estado_semaforo(semaforo['estado'])}")
+            semaforos_en_rojo = []
+            pausar_por_semaforo = False
+
+        time.sleep(0.5)
+
+    if movimiento == "-":
+        print()
+    return posicion, km_recorridos
+
+def simular_recorrido(recorrido, vias, r_vias, recorridoSel, delay, tanque, semaforos):
+    posicion = 0
+    km_total = 0
+    consumo_total = 0
+    semaforos_ruta = generar_semaforos_para_ruta(r_vias[recorridoSel], vias, semaforos)
+
+    print("\nRuta seleccionada:")
+    for tramo in r_vias[recorridoSel]:
+        if tramo != 0:
+            nombre_via = next((v["NOMBRE"] for v in vias if v["NUMERO"] == tramo), None)
+            print(f"- {nombre_via}")
+
+    print(f"\nSemáforos en la ruta ({len(semaforos_ruta)}):")
+    for s in semaforos_ruta:
+        print(f"- Semáforo en {s['nombre_via']} Km {s['distancia_km']}: {mostrar_estado_semaforo(s['estado_inicial'])}")
+
+    print("\nIniciando recorrido...\n")
+
+    for tramo, distancia in zip(r_vias[recorridoSel], recorrido[recorridoSel]):
+        if tramo == 0 or distancia == 0:
+            continue
+
+        nombre_via = next((v["NOMBRE"] for v in vias if v["NUMERO"] == tramo), None)
+        movimiento = next((v["MOVIMIENTO"] for v in vias if v["NUMERO"] == tramo), None)
+        semaforos_via = [s for s in semaforos_ruta if s["via"] == tramo]
+
+        posicion, km_recorridos = avanzar(movimiento, distancia, delay, posicion, semaforos_via, km_total)
+        consumo = km_recorridos * 0.5
+        tanque -= consumo
+        km_total += km_recorridos
+        consumo_total += consumo
+
+        if tanque <= 0:
+            print("\n¡Se acabó el combustible! El vehículo se detiene.")
+            return
+
+    print(f"\nRecorrido completado.")
+    print(f"Total de kilómetros recorridos: {km_total} km")
+    print(f"Consumo total: {consumo_total:.2f}L")
+    print(f"Combustible restante: {tanque:.2f}L")
+
+# --------------------- FUNCIÓN PRINCIPAL ---------------------
+def main():
+    """
+    tiempo_actual = random.randint(0, 59)
+    ruta_index = tiempo_actual // 20
+    tanque = round(random.uniform(35, 100), 2)
+    delay = float(input("Ingrese el retraso en milisegundos (ej. 100): ")) / 1000
+
+    print(f"\nTanque de combustible inicial: {tanque} L")
+    print(f"Ruta seleccionada: {ruta_index + 1}")
+
+    recorrido = [
+        [12, 7, 12, 0],
+        [4, 3, 10, 4],
+        [10, 7, 6, 0]
+    ]
+
+    vias = [
+        {"NUMERO": 1, "NOMBRE": "Autopista norte", "MOVIMIENTO": "-"},
+        {"NUMERO": 2, "NOMBRE": "NQS", "MOVIMIENTO": "\\"},
+        {"NUMERO": 3, "NOMBRE": "Avenida Boyacá", "MOVIMIENTO": "\\"},
+        {"NUMERO": 4, "NOMBRE": "Calle 26", "MOVIMIENTO": "/"},
+        {"NUMERO": 5, "NOMBRE": "Calle 100", "MOVIMIENTO": "\\"},
+        {"NUMERO": 6, "NOMBRE": "Calle 170", "MOVIMIENTO": "|"}
+    ]
+
+    r_vias = [
+        [1, 2, 4, 0],
+        [1, 6, 3, 4],
+        [1, 5, 4, 0]
+    ]
+
+    semaforos = {
+        1: {"via": "Avenida Boyacá", "orientacion": "Norte-sur", "distancia_km": 2},
+        2: {"via": "Avenida Boyacá", "orientacion": "Norte-sur", "distancia_km": 5},
+        3: {"via": "NQS", "orientacion": "Norte-sur", "distancia_km": 4},
+        4: {"via": "Calle 26", "orientacion": "Oriente-occidente", "distancia_km": 1},
+        5: {"via": "Calle 100", "orientacion": "Norte-sur", "distancia_km": 6},
+        6: {"via": "Autopista norte", "orientacion": "Norte-sur", "distancia_km": 3},
+        7: {"via": "Autopista norte", "orientacion": "Norte-sur", "distancia_km": 8},
+        8: {"via": "Calle 170", "orientacion": "Oriente-occidente", "distancia_km": 2}
+    }
+
+    simular_recorrido(recorrido, vias, r_vias, ruta_index, delay, tanque, semaforos)
+    """
+    gr_L(10,10)
+
+# Ejecutar
+main()
