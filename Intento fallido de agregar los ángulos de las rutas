@@ -1,0 +1,133 @@
+from random import randint
+from time import sleep
+from EV3Con import *
+
+# Movimiento físico del robot
+def Str(distancia_cm):
+    print(f"Avanzando {distancia_cm} cm")  # Reemplaza esto con el comando real de avance
+
+def gr_L(veces, tiempo):
+    print(f"Girando {veces * 10}° a la izquierda")  # Reemplaza con comando real
+
+def gr_R(veces, tiempo):
+    print(f"Girando {veces * 10}° a la derecha")  # Reemplaza con comando real
+
+# Datos de las rutas
+recorrido = [
+    [2, 1, 1.5, 2.5],
+    [2, 1, 2, 2],
+    [1, 1, 1, 2, 1],
+    [2, 2, 2, 1],
+    [2, 1, 3, 1],
+    [1, 1, 1, 1, 2],
+]
+
+r_vias = [
+    [1, 3, 4, 7],
+    [1, 3, 5, 7],
+    [2, 3, 4, 6, 7],
+    [1, 3, 5, 7],
+    [1, 3, 4, 7],
+    [2, 3, 5, 6, 7],
+]
+
+vias = [
+    {"NUMERO": 1, "NOMBRE": "Autopista norte", "MOVIMIENTO": "Recto"},
+    {"NUMERO": 2, "NOMBRE": "Calle 170", "MOVIMIENTO": "Recto"},
+    {"NUMERO": 3, "NOMBRE": "NQS", "MOVIMIENTO": "Recto"},
+    {"NUMERO": 4, "NOMBRE": "Calle 100", "MOVIMIENTO": "Recto"},
+    {"NUMERO": 5, "NOMBRE": "Avenida Boyacá", "MOVIMIENTO": "Recto"},
+    {"NUMERO": 6, "NOMBRE": "Calle 26", "MOVIMIENTO": "Recto"},
+    {"NUMERO": 7, "NOMBRE": "Aeropuerto", "MOVIMIENTO": "Recto"},
+]
+
+semaforos_ruta = [
+    {"km": 1, "via": 1},
+    {"km": 2, "via": 3},
+    {"km": 1, "via": 4},
+    {"km": 1, "via": 7},
+    {"km": 2, "via": 5},
+    {"km": 1, "via": 6},
+]
+
+intersecciones = {
+    ("Autopista norte", "NQS"): 30,
+    ("Autopista norte", "Calle 170"): 90,
+    ("Autopista norte", "Calle 100"): 60,
+    ("Calle 170", "Avenida Boyacá"): -90,
+    ("NQS", "Calle 26"): 60,
+    ("Calle 100", "Calle 26"): 30,
+    ("Avenida Boyacá", "Calle 26"): 90
+}
+
+def avanzar(movimiento, km, delay, posicion, semaforos, km_total):
+    print(f"Moviéndose {movimiento} durante {km} km")
+    sleep(delay)
+    posicion += 1
+
+    for s in semaforos:
+        if s["km"] == posicion:
+            print("Semáforo encontrado. Deteniéndose...")
+            sleep(2)
+            print("Semáforo en verde. Avanzando...")
+
+    return posicion, km
+
+def avanzar_robot(km):
+    distancia_cm = km * 10
+    Str(distancia_cm)
+
+def detectar_y_realizar_giro(via_anterior, via_actual):
+    nombres = (via_anterior, via_actual)
+    if nombres in intersecciones:
+        angulo = intersecciones[nombres]
+    elif (via_actual, via_anterior) in intersecciones:
+        angulo = -intersecciones[(via_actual, via_anterior)]
+    else:
+        return
+    if angulo > 0:
+        gr_L(angulo // 10, 10)
+    elif angulo < 0:
+        gr_R(abs(angulo) // 10, 10)
+
+def simular_recorrido():
+    recorridoSel = randint(0, len(recorrido) - 1)
+    print(f"Recorrido aleatorio seleccionado: {recorridoSel + 1}")
+
+    delay = 1
+    posicion = 0
+    tanque = 10
+    km_total = 0
+    via_anterior = None
+
+    for tramo, distancia in zip(r_vias[recorridoSel], recorrido[recorridoSel]):
+        if tramo == 0 or distancia == 0:
+            continue
+
+        nombre_via = next((v["NOMBRE"] for v in vias if v["NUMERO"] == tramo), None)
+        movimiento = next((v["MOVIMIENTO"] for v in vias if v["NUMERO"] == tramo), None)
+        semaforos_via = [s for s in semaforos_ruta if s["via"] == tramo]
+
+        if via_anterior:
+            detectar_y_realizar_giro(via_anterior, nombre_via)
+
+        print(f"Avanzando por la vía: {nombre_via} ({movimiento})")
+
+        posicion, km_recorridos = avanzar(movimiento, distancia, delay, posicion, semaforos_via, km_total)
+        avanzar_robot(km_recorridos)
+
+        consumo = km_recorridos * 0.5
+        tanque -= consumo
+        print(f"Consumo: {consumo} L - Combustible restante: {tanque:.2f} L")
+
+        if tanque <= 0:
+            print("Tanque vacío. Fin del recorrido.")
+            break
+
+        km_total += km_recorridos
+        via_anterior = nombre_via
+
+    print("Recorrido finalizado")
+
+# Ejecutar la simulación
+simular_recorrido()
