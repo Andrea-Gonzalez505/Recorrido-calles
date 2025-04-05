@@ -1,0 +1,89 @@
+import random
+
+def horizontal(velocidad):
+    for i in range(velocidad):
+        print("-", end="")
+
+def recta(velocidad):
+    for i in range(velocidad):
+        print("|")
+
+def diagonal_derecha(velocidad):
+    """
+    Imprime una línea en diagonal hacia la derecha con la velocidad indicada. \\
+    """
+    espacios = 0
+    for i in range(velocidad):
+        print(" " * espacios + "\\")
+        espacios += 1
+
+def diagonal_izquierda(velocidad):
+    """ Imprime una línea en diagonal hacia la izquierda con la velocidad indicada. /
+    """
+    espacios = velocidad - 1
+    for i in range(velocidad):
+        print(" " * espacios + "/")
+        espacios -= 1
+
+def obtener_ruta(tiempo_actual):
+    if 0 <= tiempo_actual <= 19:
+        return 0
+    elif 20 <= tiempo_actual <= 39:
+        return 1
+    else:
+        return 2
+
+def lanzar_dado():
+    return random.randint(1, 6)
+
+def calcular_distancias(recorrido):
+    return [sum(fila) for fila in recorrido]
+
+def avanzar(movimiento, distancia):
+    if movimiento == "-":
+        horizontal(distancia)
+    elif movimiento == "|":
+        recta(distancia)
+    elif movimiento == "\\":
+        diagonal_derecha(distancia)
+    elif movimiento == "/":
+        diagonal_izquierda(distancia)
+
+def simular_recorrido(recorrido, vias, r_vias, recorridoSel):
+    for tramo, distancia in zip(r_vias[recorridoSel], recorrido[recorridoSel]):
+        movimiento = next((v["MOVIMIENTO"] for v in vias if v["NUMERO"] == tramo), None)
+        if movimiento:
+            avanzar(movimiento, distancia)
+    print("\nRecorrido completado.")
+
+def main():
+    tiempo_actual = random.randint(0, 59)
+    ruta_index = obtener_ruta(tiempo_actual)
+    tanque = round(random.uniform(35, 100), 2)
+    print(f"Ruta seleccionada: {ruta_index}")
+    print(f"Tanque de combustible: {tanque}")
+    
+    recorrido = [
+        [12, 7, 12, 0],
+        [4, 3, 10, 4],
+        [10, 7, 6, 0]
+    ]
+    
+    vias = [
+        {"NUMERO": 1, "NOMBRE": "Autopista norte", "MOVIMIENTO": "-"},
+        {"NUMERO": 2, "NOMBRE": "NQS", "MOVIMIENTO": "\\"},
+        {"NUMERO": 3, "NOMBRE": "Avenida Boyacá", "MOVIMIENTO": "\\"},
+        {"NUMERO": 4, "NOMBRE": "Calle 26", "MOVIMIENTO": "/"},
+        {"NUMERO": 5, "NOMBRE": "Calle 100", "MOVIMIENTO": "\\"},
+        {"NUMERO": 6, "NOMBRE": "Calle 170", "MOVIMIENTO": "|"}
+    ]
+    
+    r_vias = [
+        [1, 2, 4, 0],
+        [1, 6, 3, 4],
+        [1, 5, 4, 0]
+    ]
+    
+    simular_recorrido(recorrido, vias, r_vias, ruta_index)
+    
+main()
